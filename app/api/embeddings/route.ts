@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { embedBatch } from "@/lib/embedder";
+import { embedBatch, updateIDF, resetIDF } from "@/lib/embedder";
 import { chunkText } from "@/lib/chunker";
 import { addChunks, clearStore, getDocuments } from "@/lib/vectorStore";
 import { Chunk } from "@/lib/types";
@@ -14,12 +14,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "text and source are required" }, { status: 400 });
     }
 
-    if (reset) clearStore();
+    if (reset) {
+      clearStore();
+      resetIDF();
+    }
 
     const rawChunks = chunkText(text, source);
     if (rawChunks.length === 0) {
       return NextResponse.json({ error: "No chunks generated from text" }, { status: 400 });
     }
+
+    // Update IDF state before embedding so new chunks are factored in
+    updateIDF(rawChunks.map((c) => c.text));
 
     const allEmbeddings = await embedBatch(rawChunks.map((c) => c.text));
 
@@ -49,5 +55,6 @@ export async function GET() {
 
 export async function DELETE() {
   clearStore();
+  resetIDF();
   return NextResponse.json({ ok: true });
 }
