@@ -6,9 +6,15 @@ import { SourceCitation } from "@/lib/types";
 
 function getAnthropic() { return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }); }
 
+type HistoryMsg = { role: "user" | "assistant"; content: string };
+
 export async function POST(req: NextRequest) {
   try {
-    const { question, topK = 3 } = await req.json();
+    const { question, topK = 3, history = [] } = await req.json() as {
+      question: string;
+      topK?: number;
+      history?: HistoryMsg[];
+    };
 
     if (!question) {
       return NextResponse.json({ error: "question is required" }, { status: 400 });
@@ -36,11 +42,16 @@ This score should reflect how well the context supports your answer.`;
 
     const userPrompt = `Context:\n${contextBlock}\n\nQuestion: ${question}\n\nProvide a precise clinical answer with source citations.`;
 
+    const priorMessages: Anthropic.MessageParam[] = history.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
     const message = await getAnthropic().messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      messages: [{ role: "user", content: userPrompt }],
       system: systemPrompt,
+      messages: [...priorMessages, { role: "user", content: userPrompt }],
     });
 
     const rawAnswer = message.content[0].type === "text" ? message.content[0].text : "";

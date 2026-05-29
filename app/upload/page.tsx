@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
-  Upload, FileText, Trash2, CheckCircle, AlertCircle, Loader2,
-  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X
+  Upload, FileText, CheckCircle, AlertCircle, Loader2,
+  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check
 } from "lucide-react";
 import { SAMPLE_DOCUMENT_NAME, SAMPLE_DOCUMENT_TEXT } from "@/lib/sampleData";
 import { QueryResult } from "@/lib/types";
@@ -59,19 +59,19 @@ function SourcesAccordion({ result }: { result: QueryResult }) {
 }
 
 export default function UploadPage() {
-  // Document state
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadMsg, setUploadMsg] = useState("");
-  const [uploadStep, setUploadStep] = useState(0); // 0=idle 1=parse 2=chunk 3=index
+  const [uploadStep, setUploadStep] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
+  const [showMobileDocs, setShowMobileDocs] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +113,7 @@ export default function UploadPage() {
         setUploadMsg("Chunking text…");
       }
       setUploadStep(2);
-      await new Promise((r) => setTimeout(r, 80)); // let UI update
+      await new Promise((r) => setTimeout(r, 80));
       setUploadStep(3);
       setUploadMsg("Indexing chunks…");
       const data = await embedText(text, file.name);
@@ -122,6 +122,7 @@ export default function UploadPage() {
       setUploadStep(0);
       setUploadMsg(`Indexed ${data.chunkCount} chunks from ${file.name}`);
       setShowDropzone(false);
+      setShowMobileDocs(false);
       setMessages(prev => [...prev, {
         role: "assistant",
         content: `${file.name} indexed (${data.chunkCount} chunks). Ask me anything about it.`,
@@ -143,6 +144,7 @@ export default function UploadPage() {
       setUploadStatus("success");
       setUploadMsg(`Indexed ${data.chunkCount} chunks`);
       setShowDropzone(false);
+      setShowMobileDocs(false);
       setMessages([{
         role: "assistant",
         content: `Clinical reference loaded (${data.chunkCount} chunks across cardiology, critical care, pharmacology, neurology, and more). Try one of the suggested questions below, or ask your own.`,
@@ -168,17 +170,28 @@ export default function UploadPage() {
     setShowDropzone(true);
   };
 
+  const copyMsg = async (text: string, idx: number) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  };
+
   const send = async (question?: string) => {
     const q = (question ?? input).trim();
     if (!q || chatLoading || !hasDocuments) return;
     setInput("");
+
+    const history = messages
+      .filter(m => m.role === "user" || (m.role === "assistant" && m.result !== undefined))
+      .map(m => ({ role: m.role, content: m.content }));
+
     setMessages(prev => [...prev, { role: "user", content: q }]);
     setChatLoading(true);
     try {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, history }),
       });
       const data: QueryResult = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.answer, result: data }]);
@@ -190,16 +203,33 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* ── Left panel: Documents ── */}
-      <div className="w-72 shrink-0 border-r border-slate-700/50 flex flex-col bg-slate-900/40 overflow-y-auto">
-        <div className="p-4 border-b border-slate-700/50">
+    <div className="flex flex-col md:flex-row md:h-full overflow-hidden">
+      {/* Left panel: Documents */}
+      <div className="md:w-72 w-full shrink-0 md:border-r border-b md:border-b-0 border-slate-700/50 flex flex-col bg-slate-900/40 md:overflow-y-auto">
+        {/* Mobile toggle header */}
+        <button
+          className="md:hidden flex items-center justify-between w-full p-4 border-b border-slate-700/50 text-left"
+          onClick={() => setShowMobileDocs(v => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">Documents</span>
+            {docs.length > 0 && (
+              <span className="text-[10px] bg-sky-900/60 text-sky-300 px-1.5 py-0.5 rounded">
+                {docs.length} indexed
+              </span>
+            )}
+          </div>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showMobileDocs ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Desktop header */}
+        <div className="hidden md:block p-4 border-b border-slate-700/50">
           <h2 className="text-sm font-semibold text-white">Documents</h2>
           <p className="text-xs text-slate-500 mt-0.5">Session-only — not stored</p>
         </div>
 
-        <div className="p-4 space-y-3 flex-1">
-          {/* Sample data button */}
+        {/* Content */}
+        <div className={`p-4 space-y-3 flex-1 ${showMobileDocs ? "block" : "hidden md:block"}`}>
           <button
             onClick={loadSample}
             disabled={uploadStatus === "processing"}
@@ -211,7 +241,6 @@ export default function UploadPage() {
             Try Sample Data
           </button>
 
-          {/* Dropzone toggle */}
           {hasDocuments && !showDropzone ? (
             <button
               onClick={() => setShowDropzone(true)}
@@ -237,7 +266,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Status */}
           {uploadStatus !== "idle" && (
             <div className={`px-3 py-2.5 rounded-lg text-xs ${
               uploadStatus === "processing" ? "bg-slate-800 text-slate-300"
@@ -270,7 +298,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Doc list */}
           {docs.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between mb-1">
@@ -291,9 +318,8 @@ export default function UploadPage() {
         </div>
       </div>
 
-      {/* ── Right panel: Chat ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Empty state */}
+      {/* Right panel: Chat */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-[60vh] md:min-h-0">
         {!hasDocuments ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
             <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -304,11 +330,10 @@ export default function UploadPage() {
           </div>
         ) : (
           <>
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                  <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"
                       ? "bg-sky-600 text-white"
                       : "bg-slate-800 text-slate-200 border border-slate-700/50"
@@ -318,6 +343,17 @@ export default function UploadPage() {
                     )}
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                     {msg.result && <SourcesAccordion result={msg.result} />}
+                    {msg.role === "assistant" && msg.result && (
+                      <button
+                        onClick={() => copyMsg(msg.content, i)}
+                        className="mt-2 flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                        title="Copy answer"
+                      >
+                        {copiedIdx === i
+                          ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</>
+                          : <><Copy className="w-3 h-3" /> Copy</>}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -330,7 +366,6 @@ export default function UploadPage() {
                 </div>
               )}
 
-              {/* Suggested questions — shown when chat is fresh */}
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   {SUGGESTED.map(q => (
@@ -348,8 +383,7 @@ export default function UploadPage() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
-            <div className="px-6 pb-5 pt-3 border-t border-slate-800">
+            <div className="px-4 md:px-6 pb-5 pt-3 border-t border-slate-800">
               <div className="flex gap-2">
                 <input
                   ref={inputRef}

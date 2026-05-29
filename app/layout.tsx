@@ -3,6 +3,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import HipaaBanner from "@/components/HipaaBanner";
 import InactivityGuard from "@/components/InactivityGuard";
+import MobileNav from "@/components/MobileNav";
 
 export const metadata: Metadata = {
   title: "DocturLama — Healthcare RAG Assistant",
@@ -16,9 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <HipaaBanner />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto bg-slate-950">{children}</main>
+          <main className="flex-1 overflow-y-auto bg-slate-950 pb-14 md:pb-0">{children}</main>
         </div>
         <InactivityGuard />
+        <MobileNav />
       </body>
     </html>
   );

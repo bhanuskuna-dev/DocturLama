@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileEdit, Camera, BarChart2, Activity } from "lucide-react";
+import { Upload, MessageSquare, FileEdit, Camera, BarChart2, Activity } from "lucide-react";
 
 const nav = [
   { href: "/upload", label: "Documents & Chat", icon: MessageSquare },
@@ -15,7 +15,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-700/50 flex flex-col">
+    <aside className="hidden md:flex w-56 shrink-0 bg-slate-900 border-r border-slate-700/50 flex-col">
       <div className="px-5 py-4 border-b border-slate-700/50 flex items-center gap-2">
         <Activity className="w-5 h-5 text-sky-400" />
         <span className="text-white font-semibold tracking-tight">DocturLama</span>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GOLDEN_DATASET } from "@/lib/evaluations";
 import { EvalResult } from "@/lib/types";
-import { Play, Loader2, CheckCircle, TrendingUp } from "lucide-react";
+import { Play, Loader2, CheckCircle, TrendingUp, AlertTriangle } from "lucide-react";
 
 function ScoreBadge({ score, max = 10 }: { score: number; max?: number }) {
   const pct = (score / max) * 100;
@@ -22,6 +22,14 @@ export default function EvalsPage() {
   const [results, setResults] = useState<EvalResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [hasDocs, setHasDocs] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/embeddings")
+      .then(r => r.json())
+      .then(d => setHasDocs(Array.isArray(d.documents) && d.documents.length > 0))
+      .catch(() => setHasDocs(false));
+  }, []);
 
   const runAll = async () => {
     setLoading(true);
@@ -49,6 +57,18 @@ export default function EvalsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
+      {hasDocs === false && (
+        <div className="mb-6 flex items-start gap-3 px-4 py-3 bg-amber-950/60 border border-amber-700/50 rounded-xl text-sm">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <span className="text-amber-300 font-medium">No documents indexed.</span>
+            <span className="text-amber-400/80 ml-1">
+              Eval questions will retrieve no context and scores will be low. Load sample data on the{" "}
+              <a href="/upload" className="underline hover:text-amber-300 transition-colors">Documents &amp; Chat</a> page first.
+            </span>
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-white">AI Evals Panel</h1>
