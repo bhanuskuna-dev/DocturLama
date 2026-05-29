@@ -13,6 +13,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   result?: QueryResult;
+  streaming?: boolean;
 }
 
 const SUGGESTED = [
@@ -74,8 +75,25 @@ export default function UploadPage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const docsRef = useRef(docs);
+  useEffect(() => { docsRef.current = docs; }, [docs]);
 
   const hasDocuments = docs.length > 0;
+
+  // Sync UI with server state on mount — detects serverless cold-start resets
+  useEffect(() => {
+    fetch("/api/embeddings")
+      .then(r => r.json())
+      .then(d => {
+        if (!Array.isArray(d.documents) || d.documents.length === 0) {
+          setDocs([]);
+          setUploadStatus("idle");
+          setUploadMsg("");
+          setShowDropzone(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -185,18 +203,93 @@ export default function UploadPage() {
       .filter(m => m.role === "user" || (m.role === "assistant" && m.result !== undefined))
       .map(m => ({ role: m.role, content: m.content }));
 
-    setMessages(prev => [...prev, { role: "user", content: q }]);
+    setMessages(prev => [...prev,
+      { role: "user", content: q },
+      { role: "assistant", content: "", streaming: true },
+    ]);
     setChatLoading(true);
+
     try {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, history }),
       });
-      const data: QueryResult = await res.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.answer, result: data }]);
+
+      if (!res.body) throw new Error("No response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(part.slice(6));
+
+            if (data.t === "d") {
+              setMessages(prev => {
+                const msgs = [...prev];
+                const last = msgs[msgs.length - 1];
+                if (last?.role === "assistant" && last.streaming) {
+                  msgs[msgs.length - 1] = { ...last, content: last.content + data.v };
+                }
+                return msgs;
+              });
+
+            } else if (data.t === "r") {
+              const isSessionReset =
+                data.sources.length === 0 &&
+                data.confidence === 0 &&
+                docsRef.current.length > 0;
+
+              if (isSessionReset) {
+                setDocs([]);
+                setUploadStatus("idle");
+                setUploadMsg("");
+                setShowDropzone(true);
+                setMessages(prev => {
+                  const msgs = [...prev];
+                  msgs[msgs.length - 1] = {
+                    role: "assistant",
+                    content: "Your session was reset — the server restarted and cleared your indexed documents. Please re-index to continue.",
+                  };
+                  return msgs;
+                });
+              } else {
+                setMessages(prev => {
+                  const msgs = [...prev];
+                  msgs[msgs.length - 1] = {
+                    role: "assistant",
+                    content: data.answer,
+                    result: { answer: data.answer, sources: data.sources, confidence: data.confidence },
+                    streaming: false,
+                  };
+                  return msgs;
+                });
+              }
+            }
+          } catch {
+            // Skip malformed SSE events
+          }
+        }
+      }
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Request failed. Check your API key." }]);
+      setMessages(prev => {
+        const msgs = [...prev];
+        if (msgs[msgs.length - 1]?.streaming) {
+          msgs[msgs.length - 1] = { role: "assistant", content: "Request failed. Check your API key." };
+        }
+        return msgs;
+      });
     } finally {
       setChatLoading(false);
     }
@@ -341,7 +434,10 @@ export default function UploadPage() {
                     {msg.result && (
                       <div className="mb-2"><ConfidenceBadge score={msg.result.confidence} /></div>
                     )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {msg.content}
+                      {msg.streaming && <span className="animate-pulse ml-0.5">▋</span>}
+                    </p>
                     {msg.result && <SourcesAccordion result={msg.result} />}
                     {msg.role === "assistant" && msg.result && (
                       <button
@@ -357,14 +453,6 @@ export default function UploadPage() {
                   </div>
                 </div>
               ))}
-
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-2 text-slate-400 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Retrieving and generating…
-                  </div>
-                </div>
-              )}
 
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
