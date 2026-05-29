@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 import { Upload, MessageSquare, FileEdit, Camera, BarChart2, Activity } from "lucide-react";
 
 const nav = [
-  { href: "/upload", label: "Upload", icon: Upload },
-  { href: "/qa", label: "Q&A", icon: MessageSquare },
+  { href: "/upload", label: "Documents & Chat", icon: MessageSquare },
   { href: "/enhance", label: "Note Enhancer", icon: FileEdit },
   { href: "/multimodal", label: "Image & Voice", icon: Camera },
   { href: "/evals", label: "AI Evals", icon: BarChart2 },
