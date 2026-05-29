@@ -134,9 +134,9 @@ export default function MultimodalPage() {
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto px-6 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Multimodal Input</h1>
+        <h1 className="text-2xl font-semibold text-white">Image &amp; Voice</h1>
         <p className="text-slate-400 text-sm mt-0.5">
-          Text, voice, or image input. Voice uses the Web Speech API; images are analyzed by Claude Vision.
+          Ask questions by voice or upload a clinical image for AI analysis. Voice uses your browser mic; images are analyzed by Claude Vision.
         </p>
       </div>
 

@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { embedBatch, updateIDF, resetIDF } from "@/lib/embedder";
 import { chunkText } from "@/lib/chunker";
 import { addChunks, clearStore, getDocuments } from "@/lib/vectorStore";
 import { Chunk } from "@/lib/types";
 import { randomUUID } from "crypto";
-
-function getOpenAI() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
-
-async function embedBatch(texts: string[]): Promise<number[][]> {
-  const response = await getOpenAI().embeddings.create({
-    model: "text-embedding-3-small",
-    input: texts,
-  });
-  return response.data.map((d) => d.embedding);
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,21 +14,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "text and source are required" }, { status: 400 });
     }
 
-    if (reset) clearStore();
+    if (reset) {
+      clearStore();
+      resetIDF();
+    }
 
     const rawChunks = chunkText(text, source);
     if (rawChunks.length === 0) {
       return NextResponse.json({ error: "No chunks generated from text" }, { status: 400 });
     }
 
-    // Embed in batches of 20
-    const BATCH = 20;
-    const allEmbeddings: number[][] = [];
-    for (let i = 0; i < rawChunks.length; i += BATCH) {
-      const batch = rawChunks.slice(i, i + BATCH);
-      const embeddings = await embedBatch(batch.map((c) => c.text));
-      allEmbeddings.push(...embeddings);
-    }
+    // Update IDF state before embedding so new chunks are factored in
+    updateIDF(rawChunks.map((c) => c.text));
+
+    const allEmbeddings = await embedBatch(rawChunks.map((c) => c.text));
 
     const chunks: Chunk[] = rawChunks.map((c, i) => ({
       id: randomUUID(),
@@ -68,5 +55,6 @@ export async function GET() {
 
 export async function DELETE() {
   clearStore();
+  resetIDF();
   return NextResponse.json({ ok: true });
 }
