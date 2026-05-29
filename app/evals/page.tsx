@@ -64,7 +64,7 @@ export default function EvalsPage() {
             <span className="text-amber-300 font-medium">No documents indexed.</span>
             <span className="text-amber-400/80 ml-1">
               Eval questions will retrieve no context and scores will be low. Load sample data on the{" "}
-              <a href="/upload" className="underline hover:text-amber-300 transition-colors">Documents & Chat</a> page first.
+              <a href="/upload" className="underline hover:text-amber-300 transition-colors">Documents &amp; Chat</a> page first.
             </span>
           </div>
         </div>

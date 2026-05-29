@@ -246,7 +246,6 @@ export default function UploadPage() {
               });
 
             } else if (data.t === "r") {
-              // Detect cold-start: server returned "no docs" but UI thought docs were loaded
               const isSessionReset =
                 data.sources.length === 0 &&
                 data.confidence === 0 &&
