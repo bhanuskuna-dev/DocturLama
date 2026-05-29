@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { embed } from "@/lib/embedder";
 import { similaritySearch } from "@/lib/vectorStore";
 import { SourceCitation } from "@/lib/types";
 
-function getOpenAI() { return new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); }
 function getAnthropic() { return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }); }
 
 export async function POST(req: NextRequest) {
@@ -15,14 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "question is required" }, { status: 400 });
     }
 
-    // Embed the query
-    const embedResponse = await getOpenAI().embeddings.create({
-      model: "text-embedding-3-small",
-      input: question,
-    });
-    const queryEmbedding = embedResponse.data[0].embedding;
-
-    // Retrieve top chunks
+    const queryEmbedding = await embed(question);
     const chunks = similaritySearch(queryEmbedding, topK);
 
     if (chunks.length === 0) {
@@ -53,7 +45,6 @@ This score should reflect how well the context supports your answer.`;
 
     const rawAnswer = message.content[0].type === "text" ? message.content[0].text : "";
 
-    // Parse confidence score
     const confidenceMatch = rawAnswer.match(/CONFIDENCE:\s*(0?\.\d+|1\.0|1)/i);
     const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.5;
     const answer = rawAnswer.replace(/\nCONFIDENCE:\s*(0?\.\d+|1\.0|1)\s*$/i, "").trim();

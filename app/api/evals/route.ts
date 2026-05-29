@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { embed } from "@/lib/embedder";
 import { similaritySearch } from "@/lib/vectorStore";
 import { GOLDEN_DATASET } from "@/lib/evaluations";
 import { EvalResult } from "@/lib/types";
 
-function getOpenAI() { return new OpenAI({ apiKey: process.env.OPENAI_API_KEY }); }
 function getAnthropic() { return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }); }
 
 async function runSingleEval(
   question: string,
-  expectedAnswer: string
 ): Promise<{ actualAnswer: string; confidence: number; retrievedSources: number }> {
-  const embedResponse = await getOpenAI().embeddings.create({
-    model: "text-embedding-3-small",
-    input: question,
-  });
-  const queryEmbedding = embedResponse.data[0].embedding;
+  const queryEmbedding = await embed(question);
   const chunks = similaritySearch(queryEmbedding, 3);
 
   if (chunks.length === 0) {
@@ -32,10 +26,7 @@ async function runSingleEval(
     max_tokens: 512,
     system: "Answer the clinical question based on the provided context. End with CONFIDENCE: 0.X",
     messages: [
-      {
-        role: "user",
-        content: `Context:\n${contextBlock}\n\nQuestion: ${question}`,
-      },
+      { role: "user", content: `Context:\n${contextBlock}\n\nQuestion: ${question}` },
     ],
   });
 
@@ -55,12 +46,9 @@ async function judgeAnswer(
   const message = await getAnthropic().messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 256,
-    system: "You are an expert medical evaluator. Score the answer on relevance (0-10) and accuracy (0-10) compared to the expected answer. Return only JSON: {\"relevance\": N, \"accuracy\": N}",
+    system: 'You are an expert medical evaluator. Score the answer on relevance (0-10) and accuracy (0-10) compared to the expected answer. Return only JSON: {"relevance": N, "accuracy": N}',
     messages: [
-      {
-        role: "user",
-        content: `Question: ${question}\nExpected: ${expected}\nActual: ${actual}`,
-      },
+      { role: "user", content: `Question: ${question}\nExpected: ${expected}\nActual: ${actual}` },
     ],
   });
 
@@ -89,15 +77,8 @@ export async function POST(req: NextRequest) {
     const results: EvalResult[] = [];
 
     for (const pair of pairs) {
-      const { actualAnswer, confidence, retrievedSources } = await runSingleEval(
-        pair.question,
-        pair.expectedAnswer
-      );
-      const { relevance, accuracy } = await judgeAnswer(
-        pair.question,
-        pair.expectedAnswer,
-        actualAnswer
-      );
+      const { actualAnswer, confidence, retrievedSources } = await runSingleEval(pair.question);
+      const { relevance, accuracy } = await judgeAnswer(pair.question, pair.expectedAnswer, actualAnswer);
 
       results.push({
         id: pair.id,
