@@ -59,13 +59,16 @@ function SourcesAccordion({ result }: { result: QueryResult }) {
 }
 
 export default function UploadPage() {
+  // Document state
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadStep, setUploadStep] = useState(0); // 0=idle 1=parse 2=chunk 3=index
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -90,21 +93,33 @@ export default function UploadPage() {
 
   const processFile = useCallback(async (file: File) => {
     setUploadStatus("processing");
-    setUploadMsg(`Processing ${file.name}…`);
+    setUploadStep(0);
     try {
       let text = "";
       if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+        setUploadStep(1);
+        setUploadMsg(`Parsing PDF — ${file.name}…`);
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
         if (!res.ok) throw new Error("PDF parsing failed");
-        text = (await res.json()).text;
+        const parsed = await res.json();
+        text = parsed.text;
+        setUploadMsg(`Parsed ${parsed.pages} page${parsed.pages !== 1 ? "s" : ""} — chunking…`);
       } else {
+        setUploadStep(1);
+        setUploadMsg(`Reading ${file.name}…`);
         text = await file.text();
+        setUploadMsg("Chunking text…");
       }
+      setUploadStep(2);
+      await new Promise((r) => setTimeout(r, 80)); // let UI update
+      setUploadStep(3);
+      setUploadMsg("Indexing chunks…");
       const data = await embedText(text, file.name);
       setDocs(data.documents);
       setUploadStatus("success");
+      setUploadStep(0);
       setUploadMsg(`Indexed ${data.chunkCount} chunks from ${file.name}`);
       setShowDropzone(false);
       setMessages(prev => [...prev, {
@@ -114,6 +129,7 @@ export default function UploadPage() {
       setTimeout(() => inputRef.current?.focus(), 100);
     } catch (err) {
       setUploadStatus("error");
+      setUploadStep(0);
       setUploadMsg(err instanceof Error ? err.message : "Upload failed");
     }
   }, [embedText]);
@@ -175,7 +191,7 @@ export default function UploadPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left panel: Documents */}
+      {/* ── Left panel: Documents ── */}
       <div className="w-72 shrink-0 border-r border-slate-700/50 flex flex-col bg-slate-900/40 overflow-y-auto">
         <div className="p-4 border-b border-slate-700/50">
           <h2 className="text-sm font-semibold text-white">Documents</h2>
@@ -183,6 +199,7 @@ export default function UploadPage() {
         </div>
 
         <div className="p-4 space-y-3 flex-1">
+          {/* Sample data button */}
           <button
             onClick={loadSample}
             disabled={uploadStatus === "processing"}
@@ -194,6 +211,7 @@ export default function UploadPage() {
             Try Sample Data
           </button>
 
+          {/* Dropzone toggle */}
           {hasDocuments && !showDropzone ? (
             <button
               onClick={() => setShowDropzone(true)}
@@ -219,19 +237,40 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* Status */}
           {uploadStatus !== "idle" && (
-            <div className={`flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
+            <div className={`px-3 py-2.5 rounded-lg text-xs ${
               uploadStatus === "processing" ? "bg-slate-800 text-slate-300"
               : uploadStatus === "success" ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
               : "bg-red-900/40 text-red-300 border border-red-700/40"
             }`}>
-              {uploadStatus === "processing" && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5" />}
-              {uploadStatus === "success" && <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-              {uploadStatus === "error" && <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-              <span>{uploadMsg}</span>
+              <div className="flex items-start gap-2">
+                {uploadStatus === "processing" && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5" />}
+                {uploadStatus === "success" && <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                {uploadStatus === "error" && <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                <span>{uploadMsg}</span>
+              </div>
+              {uploadStatus === "processing" && (
+                <div className="flex gap-1 mt-2 ml-5">
+                  {["Parse", "Chunk", "Index"].map((label, i) => (
+                    <div key={label} className="flex items-center gap-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        uploadStep > i + 1 ? "bg-sky-400"
+                        : uploadStep === i + 1 ? "bg-sky-400 animate-pulse"
+                        : "bg-slate-600"
+                      }`} />
+                      <span className={`text-[10px] ${uploadStep >= i + 1 ? "text-sky-400" : "text-slate-600"}`}>
+                        {label}
+                      </span>
+                      {i < 2 && <span className="text-slate-700 text-[10px]">›</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
+          {/* Doc list */}
           {docs.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between mb-1">
@@ -252,8 +291,9 @@ export default function UploadPage() {
         </div>
       </div>
 
-      {/* Right panel: Chat */}
+      {/* ── Right panel: Chat ── */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Empty state */}
         {!hasDocuments ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
             <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -264,6 +304,7 @@ export default function UploadPage() {
           </div>
         ) : (
           <>
+            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -289,6 +330,7 @@ export default function UploadPage() {
                 </div>
               )}
 
+              {/* Suggested questions — shown when chat is fresh */}
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   {SUGGESTED.map(q => (
@@ -306,6 +348,7 @@ export default function UploadPage() {
               <div ref={bottomRef} />
             </div>
 
+            {/* Input */}
             <div className="px-6 pb-5 pt-3 border-t border-slate-800">
               <div className="flex gap-2">
                 <input
