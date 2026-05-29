@@ -422,7 +422,7 @@ export default function UploadPage() {
               <FileText className="w-6 h-6 text-slate-500" />
             </div>
             <p className="text-slate-300 font-medium">No documents loaded</p>
-            <p className="text-slate-500 text-sm mt-1">Upload a file or click <span className="text-sky-400">Try Sample Data</span> to start</p>
+            <p className="text-slate-500 text-sm mt-1">Upload a file or click <button onClick={loadSample} className="text-sky-400 hover:text-sky-300 underline underline-offset-2 transition-colors">Try Sample Data</button> to start</p>
           </div>
         ) : (
           <>
