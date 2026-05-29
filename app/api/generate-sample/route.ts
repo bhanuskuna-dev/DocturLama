@@ -63,14 +63,30 @@ ASSESSMENT: numbered problem list with ICD-10 codes and brief clinical rationale
 
 PLAN: specific next steps with drug names, doses, titration schedule, referrals, and follow-up timeline
 
-Write in authentic attending-physician style with standard medical abbreviations. Make the history feel lived-in — include realistic setbacks, partial responses, patient adherence issues, and clinical judgment calls made over the years. Separate the three records with a line of equals signs (===).`,
+Write in authentic attending-physician style with standard medical abbreviations. Make the history feel lived-in — include realistic setbacks, partial responses, patient adherence issues, and clinical judgment calls made over the years. Separate the three records with a line of equals signs (===).
+
+After the final === separator, add this section with 5 specific questions drawn from the 3 records you wrote above (use patient names, specific lab values, specific drugs):
+
+---QUESTIONS---
+1. [question about Patient 1]
+2. [question about Patient 2]
+3. [question about Patient 3]
+4. [cross-patient medication or lab question]
+5. [clinical reasoning question grounded in the notes]
+---END---`,
       }],
     });
 
-    const text = message.content[0].type === "text" ? message.content[0].text : "";
-    if (!text) throw new Error("Empty response from model");
+    const raw = message.content[0].type === "text" ? message.content[0].text : "";
+    if (!raw) throw new Error("Empty response from model");
 
-    return Response.json({ text, model: "claude-haiku-4-5-20251001" });
+    const questionsMatch = raw.match(/---QUESTIONS---\n([\s\S]+?)---END---/);
+    const questions: string[] = questionsMatch
+      ? questionsMatch[1].trim().split("\n").map(l => l.replace(/^\d+\.\s*/, "").trim()).filter(Boolean)
+      : [];
+    const text = raw.replace(/\n*---QUESTIONS---[\s\S]+?---END---\s*$/, "").trim();
+
+    return Response.json({ text, questions, model: "claude-haiku-4-5-20251001" });
   } catch (err) {
     console.error("Generate sample error:", err);
     return Response.json(

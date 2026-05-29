@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Upload, FileText, CheckCircle, AlertCircle, Loader2,
-  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check
+  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check, Eye, EyeOff
 } from "lucide-react";
 import { QueryResult } from "@/lib/types";
 
@@ -15,7 +15,7 @@ interface Message {
   streaming?: boolean;
 }
 
-const SUGGESTED = [
+const DEFAULT_QUESTIONS = [
   "What is the recommended first-line treatment for type 2 diabetes?",
   "What are the diagnostic criteria for sepsis?",
   "How is cardiogenic shock managed?",
@@ -67,6 +67,9 @@ export default function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
   const [showMobileDocs, setShowMobileDocs] = useState(false);
+  const [docPreview, setDocPreview] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(DEFAULT_QUESTIONS);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -144,11 +147,20 @@ export default function UploadPage() {
       setUploadMsg(`Indexed ${data.chunkCount} chunks from ${file.name}`);
       setShowDropzone(false);
       setShowMobileDocs(false);
+      setDocPreview(text);
+      setShowPreview(false);
       setMessages(prev => [...prev, {
         role: "assistant",
         content: `${file.name} indexed (${data.chunkCount} chunks). Ask me anything about it.`,
       }]);
       setTimeout(() => inputRef.current?.focus(), 100);
+      fetch("/api/suggest-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      }).then(r => r.json()).then(d => {
+        if (Array.isArray(d.questions) && d.questions.length > 0) setSuggestedQuestions(d.questions);
+      }).catch(() => {});
     } catch (err) {
       setUploadStatus("error");
       setUploadStep(0);
@@ -165,7 +177,7 @@ export default function UploadPage() {
     try {
       const genRes = await fetch("/api/generate-sample", { method: "POST" });
       if (!genRes.ok) throw new Error("Failed to generate sample records");
-      const { text, error } = await genRes.json();
+      const { text, questions, error } = await genRes.json();
       if (error) throw new Error(error);
 
       setUploadStep(2);
@@ -182,6 +194,9 @@ export default function UploadPage() {
       setUploadMsg(`Indexed ${data.chunkCount} chunks from 3 patient records`);
       setShowDropzone(false);
       setShowMobileDocs(false);
+      setDocPreview(text);
+      setShowPreview(false);
+      if (Array.isArray(questions) && questions.length > 0) setSuggestedQuestions(questions);
       setMessages([{
         role: "assistant",
         content: `3 AI-generated patient records indexed (${data.chunkCount} chunks) — covering T2DM/CKD, CAD/HFrEF, and metabolic syndrome. Try one of the suggested questions or ask about a specific patient.`,
@@ -206,6 +221,9 @@ export default function UploadPage() {
     setUploadMsg("");
     setMessages([]);
     setShowDropzone(true);
+    setDocPreview("");
+    setShowPreview(false);
+    setSuggestedQuestions(DEFAULT_QUESTIONS);
   };
 
   const copyMsg = async (text: string, idx: number) => {
@@ -428,6 +446,25 @@ export default function UploadPage() {
               ))}
             </div>
           )}
+
+          {docPreview && (
+            <div className="pt-1 border-t border-slate-700/30">
+              <button
+                onClick={() => setShowPreview(v => !v)}
+                className="w-full flex items-center gap-2 px-2 py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-800/40"
+              >
+                {showPreview ? <EyeOff className="w-3 h-3 shrink-0" /> : <Eye className="w-3 h-3 shrink-0" />}
+                <span>{showPreview ? "Hide notes preview" : "Preview notes"}</span>
+                <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${showPreview ? "rotate-180" : ""}`} />
+              </button>
+              {showPreview && (
+                <div className="mt-1 max-h-72 overflow-y-auto rounded-lg bg-slate-950 border border-slate-700/40 p-3 text-[10px] text-slate-400 font-mono whitespace-pre-wrap leading-relaxed">
+                  {docPreview.slice(0, 8000)}
+                  {docPreview.length > 8000 && "\n\n… [truncated — full text indexed]"}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -476,7 +513,7 @@ export default function UploadPage() {
 
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {SUGGESTED.map(q => (
+                  {suggestedQuestions.map(q => (
                     <button
                       key={q}
                       onClick={() => send(q)}
