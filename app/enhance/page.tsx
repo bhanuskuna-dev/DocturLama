@@ -78,8 +78,8 @@ export default function EnhancePage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <h1 className="text-2xl font-semibold text-white mb-1">Doctor Note Enhancer</h1>
-      <p className="text-slate-400 text-sm mb-8">
+      <h1 className="text-2xl font-semibold text-slate-900 dark:text-white mb-1">Doctor Note Enhancer</h1>
+      <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">
         Paste a clinical note. Claude will suggest targeted improvements — accept or reject each one.
       </p>
 
@@ -87,16 +87,16 @@ export default function EnhancePage() {
         {/* Note editor */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Clinical Note
             </label>
-            <span className="text-xs text-slate-600">{wordCount} words</span>
+            <span className="text-xs text-slate-400 dark:text-slate-600">{wordCount} words</span>
           </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={18}
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-sky-500 resize-none transition-colors"
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-sky-500 resize-none transition-colors"
             placeholder="Paste clinical note here…"
           />
 
@@ -114,7 +114,7 @@ export default function EnhancePage() {
               <>
                 <button
                   onClick={copyNote}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   title="Copy note to clipboard"
                 >
                   {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -122,7 +122,7 @@ export default function EnhancePage() {
                 </button>
                 <button
                   onClick={downloadNote}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   title="Download as .txt"
                 >
                   <Download className="w-4 h-4" />
@@ -142,7 +142,7 @@ export default function EnhancePage() {
         {/* Suggestions panel */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Suggestions {suggestions.length > 0 && `(${suggestions.length})`}
             </label>
             {acceptedCount > 0 && pendingCount === 0 && (
@@ -156,7 +156,7 @@ export default function EnhancePage() {
           </div>
 
           {suggestions.length === 0 && !loading && (
-            <div className="flex items-center justify-center h-64 rounded-xl border border-dashed border-slate-700 text-slate-600 text-sm">
+            <div className="flex items-center justify-center h-64 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600 text-sm">
               Suggestions will appear here
             </div>
           )}
@@ -169,8 +169,8 @@ export default function EnhancePage() {
                   s.accepted === true
                     ? "border-emerald-700/60 bg-emerald-900/20"
                     : s.accepted === false
-                    ? "border-slate-700/30 bg-slate-900/30 opacity-50"
-                    : "border-slate-700/50 bg-slate-800/50"
+                    ? "border-slate-200 dark:border-slate-700/30 bg-slate-50/30 dark:bg-slate-900/30 opacity-50"
+                    : "border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/50"
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -187,28 +187,28 @@ export default function EnhancePage() {
                       </button>
                       <button
                         onClick={() => decide(idx, false)}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-700/60 hover:bg-slate-600/60 text-slate-400 transition-colors"
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-slate-200 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-600/60 text-slate-500 dark:text-slate-400 transition-colors"
                       >
                         <XCircle className="w-3 h-3" /> Reject
                       </button>
                     </div>
                   )}
                   {s.accepted === true && <span className="text-xs text-emerald-400">Accepted</span>}
-                  {s.accepted === false && <span className="text-xs text-slate-500">Rejected</span>}
+                  {s.accepted === false && <span className="text-xs text-slate-400 dark:text-slate-500">Rejected</span>}
                 </div>
 
                 <div className="space-y-2 text-xs font-mono">
                   <div>
-                    <span className="text-slate-500 block mb-0.5">Original:</span>
-                    <span className="text-red-300/80 bg-red-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.original}</span>
+                    <span className="text-slate-400 dark:text-slate-500 block mb-0.5">Original:</span>
+                    <span className="text-red-600 dark:text-red-300/80 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.original}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block mb-0.5">Suggested:</span>
-                    <span className="text-emerald-300/90 bg-emerald-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.suggested}</span>
+                    <span className="text-slate-400 dark:text-slate-500 block mb-0.5">Suggested:</span>
+                    <span className="text-emerald-700 dark:text-emerald-300/90 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.suggested}</span>
                   </div>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-400 italic">{s.reason}</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 italic">{s.reason}</p>
               </div>
             ))}
           </div>
