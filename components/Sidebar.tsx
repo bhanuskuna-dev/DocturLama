@@ -1,0 +1,50 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Upload, MessageSquare, FileEdit, Camera, BarChart2, Activity } from "lucide-react";
+
+const nav = [
+  { href: "/upload", label: "Upload", icon: Upload },
+  { href: "/qa", label: "Q&A", icon: MessageSquare },
+  { href: "/enhance", label: "Note Enhancer", icon: FileEdit },
+  { href: "/multimodal", label: "Multimodal", icon: Camera },
+  { href: "/evals", label: "AI Evals", icon: BarChart2 },
+];
+
+export default function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-700/50 flex flex-col">
+      <div className="px-5 py-4 border-b border-slate-700/50 flex items-center gap-2">
+        <Activity className="w-5 h-5 text-sky-400" />
+        <span className="text-white font-semibold tracking-tight">DocturLama</span>
+      </div>
+
+      <nav className="flex-1 px-2 py-3 space-y-0.5">
+        {nav.map(({ href, label, icon: Icon }) => {
+          const active = pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                active
+                  ? "bg-sky-500/20 text-sky-300 font-medium"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="px-4 py-3 border-t border-slate-700/50 text-xs text-slate-600">
+        Session-only storage
+      </div>
+    </aside>
+  );
+}
