@@ -8,9 +8,9 @@ import { Play, Loader2, CheckCircle, TrendingUp, AlertTriangle } from "lucide-re
 function ScoreBadge({ score, max = 10 }: { score: number; max?: number }) {
   const pct = (score / max) * 100;
   const color =
-    pct >= 75 ? "text-emerald-400 bg-emerald-900/30 border-emerald-700/50"
-    : pct >= 50 ? "text-amber-400 bg-amber-900/30 border-amber-700/50"
-    : "text-red-400 bg-red-900/30 border-red-700/50";
+    pct >= 75 ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700/50"
+    : pct >= 50 ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700/50"
+    : "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700/50";
   return (
     <span className={`text-xs font-mono px-2 py-0.5 rounded border ${color}`}>
       {score}/{max}
@@ -58,21 +58,21 @@ export default function EvalsPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       {hasDocs === false && (
-        <div className="mb-6 flex items-start gap-3 px-4 py-3 bg-amber-950/60 border border-amber-700/50 rounded-xl text-sm">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-700/50 rounded-xl text-sm">
+          <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <span className="text-amber-300 font-medium">No documents indexed.</span>
-            <span className="text-amber-400/80 ml-1">
+            <span className="text-amber-700 dark:text-amber-300 font-medium">No documents indexed.</span>
+            <span className="text-amber-600 dark:text-amber-400/80 ml-1">
               Eval questions will retrieve no context and scores will be low. Load sample data on the{" "}
-              <a href="/upload" className="underline hover:text-amber-300 transition-colors">Documents &amp; Chat</a> page first.
+              <a href="/upload" className="underline hover:text-amber-800 dark:hover:text-amber-300 transition-colors">Documents &amp; Chat</a> page first.
             </span>
           </div>
         </div>
       )}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-white">AI Evals Panel</h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">AI Evals Panel</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
             {GOLDEN_DATASET.length}-pair golden dataset. Runs each question through the RAG pipeline and scores with Claude as judge.
           </p>
         </div>
@@ -94,12 +94,12 @@ export default function EvalsPage() {
             { label: "Avg Accuracy", value: `${avgAccuracy}/10`, icon: CheckCircle },
             { label: "Avg Confidence", value: `${avgConfidence}%`, icon: TrendingUp },
           ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="bg-slate-800/60 border border-slate-700/50 rounded-xl px-5 py-4">
+            <div key={label} className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-xl px-5 py-4">
               <div className="flex items-center gap-2 mb-1">
                 <Icon className="w-4 h-4 text-sky-400" />
-                <span className="text-xs text-slate-400 uppercase tracking-wider">{label}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
               </div>
-              <span className="text-2xl font-semibold text-white">{value}</span>
+              <span className="text-2xl font-semibold text-slate-900 dark:text-white">{value}</span>
             </div>
           ))}
         </div>
@@ -115,15 +115,15 @@ export default function EvalsPage() {
           return (
             <div
               key={item.id}
-              className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden"
+              className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden"
             >
               <button
                 onClick={() => setExpanded(isExp ? null : item.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/80 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs text-slate-500 font-mono shrink-0">{item.id}</span>
-                  <span className="text-sm text-slate-200 truncate">{item.question}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0">{item.id}</span>
+                  <span className="text-sm text-slate-700 dark:text-slate-200 truncate">{item.question}</span>
                 </div>
                 {hasResult && r && (
                   <div className="flex items-center gap-2 shrink-0 ml-4">
@@ -134,26 +134,26 @@ export default function EvalsPage() {
               </button>
 
               {isExp && (
-                <div className="border-t border-slate-700/50 px-4 py-4 space-y-3">
+                <div className="border-t border-slate-200 dark:border-slate-700/50 px-4 py-4 space-y-3">
                   <div>
-                    <span className="text-xs text-slate-500 block mb-1">Question</span>
-                    <p className="text-sm text-slate-200">{item.question}</p>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 block mb-1">Question</span>
+                    <p className="text-sm text-slate-700 dark:text-slate-200">{item.question}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-slate-500 block mb-1">Expected Answer</span>
-                    <p className="text-sm text-slate-300">{"expectedAnswer" in item ? item.expectedAnswer : ""}</p>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 block mb-1">Expected Answer</span>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{"expectedAnswer" in item ? item.expectedAnswer : ""}</p>
                   </div>
                   {hasResult && r && (
                     <>
                       <div>
-                        <span className="text-xs text-slate-500 block mb-1">Actual Answer</span>
-                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{r.actualAnswer}</p>
+                        <span className="text-xs text-slate-400 dark:text-slate-500 block mb-1">Actual Answer</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{r.actualAnswer}</p>
                       </div>
-                      <div className="flex items-center gap-4 pt-1 text-xs text-slate-400">
-                        <span>Relevance: <strong className="text-slate-200">{r.relevanceScore}/10</strong></span>
-                        <span>Accuracy: <strong className="text-slate-200">{r.accuracyScore}/10</strong></span>
-                        <span>Confidence: <strong className="text-slate-200">{Math.round(r.confidence * 100)}%</strong></span>
-                        <span>Sources: <strong className="text-slate-200">{r.retrievedSources}</strong></span>
+                      <div className="flex items-center gap-4 pt-1 text-xs text-slate-500 dark:text-slate-400">
+                        <span>Relevance: <strong className="text-slate-700 dark:text-slate-200">{r.relevanceScore}/10</strong></span>
+                        <span>Accuracy: <strong className="text-slate-700 dark:text-slate-200">{r.accuracyScore}/10</strong></span>
+                        <span>Confidence: <strong className="text-slate-700 dark:text-slate-200">{Math.round(r.confidence * 100)}%</strong></span>
+                        <span>Sources: <strong className="text-slate-700 dark:text-slate-200">{r.retrievedSources}</strong></span>
                       </div>
                     </>
                   )}

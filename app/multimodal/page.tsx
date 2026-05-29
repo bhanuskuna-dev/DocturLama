@@ -134,15 +134,15 @@ export default function MultimodalPage() {
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto px-6 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-white">Image &amp; Voice</h1>
-        <p className="text-slate-400 text-sm mt-0.5">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Image &amp; Voice</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
           Ask questions by voice or upload a clinical image for AI analysis. Voice uses your browser mic; images are analyzed by Claude Vision.
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-48 text-slate-600 text-sm">
+          <div className="flex items-center justify-center h-48 text-slate-400 dark:text-slate-600 text-sm">
             Start a conversation with text, voice, or an image.
           </div>
         )}
@@ -152,7 +152,7 @@ export default function MultimodalPage() {
               className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                 msg.role === "user"
                   ? "bg-sky-600 text-white"
-                  : "bg-slate-800 text-slate-200 border border-slate-700/50"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50"
               }`}
             >
               {msg.imageSrc && (
@@ -168,7 +168,7 @@ export default function MultimodalPage() {
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-2 text-slate-400 text-sm">
+            <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
               Analyzing…
             </div>
@@ -180,21 +180,21 @@ export default function MultimodalPage() {
       {/* Image preview */}
       {imagePreview && (
         <div className="relative inline-block mb-3">
-          <img src={imagePreview} alt="Preview" className="h-20 rounded-lg object-contain border border-slate-700" />
+          <img src={imagePreview} alt="Preview" className="h-20 rounded-lg object-contain border border-slate-200 dark:border-slate-700" />
           <button
             onClick={() => { setImagePreview(null); setImageBase64(null); }}
-            className="absolute -top-1.5 -right-1.5 bg-slate-700 hover:bg-slate-600 rounded-full p-0.5 transition-colors"
+            className="absolute -top-1.5 -right-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-full p-0.5 transition-colors"
           >
-            <X className="w-3 h-3 text-slate-300" />
+            <X className="w-3 h-3 text-slate-600 dark:text-slate-300" />
           </button>
         </div>
       )}
 
       {/* Input bar */}
-      <div className="flex gap-2 pt-4 border-t border-slate-800">
+      <div className="flex gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
         <button
           onClick={() => fileRef.current?.click()}
-          className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+          className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
           title="Upload image"
         >
           <ImagePlus className="w-4 h-4" />
@@ -212,7 +212,7 @@ export default function MultimodalPage() {
           className={`p-3 rounded-xl transition-colors ${
             isRecording
               ? "bg-red-600 hover:bg-red-500 text-white"
-              : "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+              : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           }`}
           title={isRecording ? "Stop recording" : "Start voice input"}
         >
@@ -224,7 +224,7 @@ export default function MultimodalPage() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder={isRecording ? "Listening…" : "Type or speak a clinical question, or upload an image…"}
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+          className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
         />
 
         <button

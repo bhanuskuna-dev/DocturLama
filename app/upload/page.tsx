@@ -37,19 +37,19 @@ function SourcesAccordion({ result }: { result: QueryResult }) {
   const [open, setOpen] = useState(false);
   if (!result.sources.length) return null;
   return (
-    <div className="mt-2 border border-slate-700/50 rounded-lg overflow-hidden text-xs">
+    <div className="mt-2 border border-slate-200 dark:border-slate-700/50 rounded-lg overflow-hidden text-xs">
       <button onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-slate-400 hover:bg-slate-700/40 transition-colors">
+        className="w-full flex items-center justify-between px-3 py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/40 transition-colors">
         <span>{result.sources.length} source{result.sources.length > 1 ? "s" : ""} retrieved</span>
         {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
       </button>
       {open && (
-        <div className="border-t border-slate-700/50 divide-y divide-slate-700/30">
+        <div className="border-t border-slate-200 dark:border-slate-700/50 divide-y divide-slate-100 dark:divide-slate-700/30">
           {result.sources.map(src => (
             <div key={src.label} className="px-3 py-2">
               <span className="text-sky-400 font-medium">{src.label}</span>
-              <span className="text-slate-500 ml-2">{src.source} · chunk {src.chunkIndex}</span>
-              <p className="text-slate-400 mt-1 leading-relaxed">{src.text}</p>
+              <span className="text-slate-400 dark:text-slate-500 ml-2">{src.source} · chunk {src.chunkIndex}</span>
+              <p className="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{src.text}</p>
             </div>
           ))}
         </div>
@@ -336,16 +336,16 @@ export default function UploadPage() {
   return (
     <div className="flex flex-col md:flex-row md:h-full overflow-hidden">
       {/* Left panel: Documents */}
-      <div className="md:w-72 w-full shrink-0 md:border-r border-b md:border-b-0 border-slate-700/50 flex flex-col bg-slate-900/40 md:overflow-y-auto">
+      <div className="md:w-72 w-full shrink-0 md:border-r border-b md:border-b-0 border-slate-200 dark:border-slate-700/50 flex flex-col bg-slate-50/40 dark:bg-slate-900/40 md:overflow-y-auto">
         {/* Mobile toggle header */}
         <button
-          className="md:hidden flex items-center justify-between w-full p-4 border-b border-slate-700/50 text-left"
+          className="md:hidden flex items-center justify-between w-full p-4 border-b border-slate-200 dark:border-slate-700/50 text-left"
           onClick={() => setShowMobileDocs(v => !v)}
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white">Documents</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">Documents</span>
             {docs.length > 0 && (
-              <span className="text-[10px] bg-sky-900/60 text-sky-300 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-300 px-1.5 py-0.5 rounded">
                 {docs.length} indexed
               </span>
             )}
@@ -354,8 +354,8 @@ export default function UploadPage() {
         </button>
 
         {/* Desktop header */}
-        <div className="hidden md:block p-4 border-b border-slate-700/50">
-          <h2 className="text-sm font-semibold text-white">Documents</h2>
+        <div className="hidden md:block p-4 border-b border-slate-200 dark:border-slate-700/50">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Documents</h2>
           <p className="text-xs text-slate-500 mt-0.5">Session-only — not stored</p>
         </div>
 
@@ -375,7 +375,7 @@ export default function UploadPage() {
           {hasDocuments && !showDropzone ? (
             <button
               onClick={() => setShowDropzone(true)}
-              className="w-full flex items-center gap-2 px-3 py-2 border border-slate-700 hover:border-slate-500 rounded-lg text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
             >
               <Plus className="w-4 h-4" /> Add more files
             </button>
@@ -386,12 +386,12 @@ export default function UploadPage() {
               onDrop={e => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
               onClick={() => fileRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors ${
-                isDragging ? "border-sky-400 bg-sky-500/10" : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/40"
+                isDragging ? "border-sky-400 bg-sky-500/10" : "border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
               }`}
             >
-              <Upload className="w-6 h-6 mx-auto mb-2 text-slate-500" />
-              <p className="text-xs text-slate-400">Drop a file or click</p>
-              <p className="text-xs text-slate-600 mt-0.5">PDF, TXT, MD</p>
+              <Upload className="w-6 h-6 mx-auto mb-2 text-slate-400 dark:text-slate-500" />
+              <p className="text-xs text-slate-500 dark:text-slate-400">Drop a file or click</p>
+              <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">PDF, TXT, MD</p>
               <input ref={fileRef} type="file" accept=".pdf,.txt,.md,.text" multiple className="hidden"
                 onChange={e => handleFiles(e.target.files)} />
             </div>
@@ -399,7 +399,7 @@ export default function UploadPage() {
 
           {uploadStatus !== "idle" && (
             <div className={`px-3 py-2.5 rounded-lg text-xs ${
-              uploadStatus === "processing" ? "bg-slate-800 text-slate-300"
+              uploadStatus === "processing" ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
               : uploadStatus === "success" ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
               : "bg-red-900/40 text-red-300 border border-red-700/40"
             }`}>
@@ -416,12 +416,12 @@ export default function UploadPage() {
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         uploadStep > i + 1 ? "bg-sky-400"
                         : uploadStep === i + 1 ? "bg-sky-400 animate-pulse"
-                        : "bg-slate-600"
+                        : "bg-slate-300 dark:bg-slate-600"
                       }`} />
-                      <span className={`text-[10px] ${uploadStep >= i + 1 ? "text-sky-400" : "text-slate-600"}`}>
+                      <span className={`text-[10px] ${uploadStep >= i + 1 ? "text-sky-400" : "text-slate-400 dark:text-slate-600"}`}>
                         {label}
                       </span>
-                      {i < 2 && <span className="text-slate-700 text-[10px]">›</span>}
+                      {i < 2 && <span className="text-slate-300 dark:text-slate-700 text-[10px]">›</span>}
                     </div>
                   ))}
                 </div>
@@ -438,27 +438,27 @@ export default function UploadPage() {
                 </button>
               </div>
               {docs.map(doc => (
-                <div key={doc.source} className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-2">
+                <div key={doc.source} className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg px-3 py-2">
                   <FileText className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span className="text-xs text-slate-300 truncate flex-1">{doc.source}</span>
-                  <span className="text-xs text-slate-600 shrink-0">{doc.chunkCount}</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300 truncate flex-1">{doc.source}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-600 shrink-0">{doc.chunkCount}</span>
                 </div>
               ))}
             </div>
           )}
 
           {docPreview && (
-            <div className="pt-1 border-t border-slate-700/30">
+            <div className="pt-1 border-t border-slate-200/70 dark:border-slate-700/30">
               <button
                 onClick={() => setShowPreview(v => !v)}
-                className="w-full flex items-center gap-2 px-2 py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-800/40"
+                className="w-full flex items-center gap-2 px-2 py-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-100/40 dark:hover:bg-slate-800/40"
               >
                 {showPreview ? <EyeOff className="w-3 h-3 shrink-0" /> : <Eye className="w-3 h-3 shrink-0" />}
                 <span>{showPreview ? "Hide notes preview" : "Preview notes"}</span>
                 <ChevronDown className={`w-3 h-3 ml-auto transition-transform ${showPreview ? "rotate-180" : ""}`} />
               </button>
               {showPreview && (
-                <div className="mt-1 max-h-72 overflow-y-auto rounded-lg bg-slate-950 border border-slate-700/40 p-3 text-[10px] text-slate-400 font-mono whitespace-pre-wrap leading-relaxed">
+                <div className="mt-1 max-h-72 overflow-y-auto rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700/40 p-3 text-[10px] text-slate-600 dark:text-slate-400 font-mono whitespace-pre-wrap leading-relaxed">
                   {docPreview.slice(0, 8000)}
                   {docPreview.length > 8000 && "\n\n… [truncated — full text indexed]"}
                 </div>
@@ -472,10 +472,10 @@ export default function UploadPage() {
       <div className="flex-1 flex flex-col min-w-0 min-h-[60vh] md:min-h-0">
         {!hasDocuments ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-            <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
               <FileText className="w-6 h-6 text-slate-500" />
             </div>
-            <p className="text-slate-300 font-medium">No documents loaded</p>
+            <p className="text-slate-600 dark:text-slate-300 font-medium">No documents loaded</p>
             <p className="text-slate-500 text-sm mt-1">Upload a file or click <button onClick={loadSample} className="text-sky-400 hover:text-sky-300 underline underline-offset-2 transition-colors">Try Sample Data</button> to start</p>
           </div>
         ) : (
@@ -486,7 +486,7 @@ export default function UploadPage() {
                   <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"
                       ? "bg-sky-600 text-white"
-                      : "bg-slate-800 text-slate-200 border border-slate-700/50"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50"
                   }`}>
                     {msg.result && (
                       <div className="mb-2"><ConfidenceBadge score={msg.result.confidence} /></div>
@@ -499,7 +499,7 @@ export default function UploadPage() {
                     {msg.role === "assistant" && msg.result && (
                       <button
                         onClick={() => copyMsg(msg.content, i)}
-                        className="mt-2 flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                        className="mt-2 flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                         title="Copy answer"
                       >
                         {copiedIdx === i
@@ -517,7 +517,7 @@ export default function UploadPage() {
                     <button
                       key={q}
                       onClick={() => send(q)}
-                      className="text-xs px-3 py-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700/50 text-slate-300 hover:text-white transition-colors text-left"
+                      className="text-xs px-3 py-2 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors text-left"
                     >
                       {q}
                     </button>
@@ -528,7 +528,7 @@ export default function UploadPage() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="px-4 md:px-6 pb-5 pt-3 border-t border-slate-800">
+            <div className="px-4 md:px-6 pb-5 pt-3 border-t border-slate-200 dark:border-slate-800">
               <div className="flex gap-2">
                 <input
                   ref={inputRef}
@@ -536,7 +536,7 @@ export default function UploadPage() {
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Ask a clinical question…"
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                  className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
                 />
                 <button
                   onClick={() => send()}
