@@ -13,6 +13,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   result?: QueryResult;
+  streaming?: boolean;
 }
 
 const SUGGESTED = [
@@ -59,25 +60,40 @@ function SourcesAccordion({ result }: { result: QueryResult }) {
 }
 
 export default function UploadPage() {
-  // Document state
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadMsg, setUploadMsg] = useState("");
-  const [uploadStep, setUploadStep] = useState(0); // 0=idle 1=parse 2=chunk 3=index
+  const [uploadStep, setUploadStep] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
   const [showMobileDocs, setShowMobileDocs] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const docsRef = useRef(docs);
+  useEffect(() => { docsRef.current = docs; }, [docs]);
 
   const hasDocuments = docs.length > 0;
+
+  // Sync UI with server state on mount — detects serverless cold-start resets
+  useEffect(() => {
+    fetch("/api/embeddings")
+      .then(r => r.json())
+      .then(d => {
+        if (!Array.isArray(d.documents) || d.documents.length === 0) {
+          setDocs([]);
+          setUploadStatus("idle");
+          setUploadMsg("");
+          setShowDropzone(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -183,23 +199,98 @@ export default function UploadPage() {
     if (!q || chatLoading || !hasDocuments) return;
     setInput("");
 
-    // Build history from real Q&A turns only (user questions + RAG answers with result)
     const history = messages
       .filter(m => m.role === "user" || (m.role === "assistant" && m.result !== undefined))
       .map(m => ({ role: m.role, content: m.content }));
 
-    setMessages(prev => [...prev, { role: "user", content: q }]);
+    setMessages(prev => [...prev,
+      { role: "user", content: q },
+      { role: "assistant", content: "", streaming: true },
+    ]);
     setChatLoading(true);
+
     try {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, history }),
       });
-      const data: QueryResult = await res.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.answer, result: data }]);
+
+      if (!res.body) throw new Error("No response body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          if (!part.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(part.slice(6));
+
+            if (data.t === "d") {
+              setMessages(prev => {
+                const msgs = [...prev];
+                const last = msgs[msgs.length - 1];
+                if (last?.role === "assistant" && last.streaming) {
+                  msgs[msgs.length - 1] = { ...last, content: last.content + data.v };
+                }
+                return msgs;
+              });
+
+            } else if (data.t === "r") {
+              // Detect cold-start: server returned "no docs" but UI thought docs were loaded
+              const isSessionReset =
+                data.sources.length === 0 &&
+                data.confidence === 0 &&
+                docsRef.current.length > 0;
+
+              if (isSessionReset) {
+                setDocs([]);
+                setUploadStatus("idle");
+                setUploadMsg("");
+                setShowDropzone(true);
+                setMessages(prev => {
+                  const msgs = [...prev];
+                  msgs[msgs.length - 1] = {
+                    role: "assistant",
+                    content: "Your session was reset — the server restarted and cleared your indexed documents. Please re-index to continue.",
+                  };
+                  return msgs;
+                });
+              } else {
+                setMessages(prev => {
+                  const msgs = [...prev];
+                  msgs[msgs.length - 1] = {
+                    role: "assistant",
+                    content: data.answer,
+                    result: { answer: data.answer, sources: data.sources, confidence: data.confidence },
+                    streaming: false,
+                  };
+                  return msgs;
+                });
+              }
+            }
+          } catch {
+            // Skip malformed SSE events
+          }
+        }
+      }
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Request failed. Check your API key." }]);
+      setMessages(prev => {
+        const msgs = [...prev];
+        if (msgs[msgs.length - 1]?.streaming) {
+          msgs[msgs.length - 1] = { role: "assistant", content: "Request failed. Check your API key." };
+        }
+        return msgs;
+      });
     } finally {
       setChatLoading(false);
     }
@@ -207,7 +298,7 @@ export default function UploadPage() {
 
   return (
     <div className="flex flex-col md:flex-row md:h-full overflow-hidden">
-      {/* ── Left panel: Documents ── */}
+      {/* Left panel: Documents */}
       <div className="md:w-72 w-full shrink-0 md:border-r border-b md:border-b-0 border-slate-700/50 flex flex-col bg-slate-900/40 md:overflow-y-auto">
         {/* Mobile toggle header */}
         <button
@@ -231,9 +322,8 @@ export default function UploadPage() {
           <p className="text-xs text-slate-500 mt-0.5">Session-only — not stored</p>
         </div>
 
-        {/* Content — always visible on desktop, toggle on mobile */}
+        {/* Content */}
         <div className={`p-4 space-y-3 flex-1 ${showMobileDocs ? "block" : "hidden md:block"}`}>
-          {/* Sample data button */}
           <button
             onClick={loadSample}
             disabled={uploadStatus === "processing"}
@@ -245,7 +335,6 @@ export default function UploadPage() {
             Try Sample Data
           </button>
 
-          {/* Dropzone toggle */}
           {hasDocuments && !showDropzone ? (
             <button
               onClick={() => setShowDropzone(true)}
@@ -271,7 +360,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Status */}
           {uploadStatus !== "idle" && (
             <div className={`px-3 py-2.5 rounded-lg text-xs ${
               uploadStatus === "processing" ? "bg-slate-800 text-slate-300"
@@ -304,7 +392,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Doc list */}
           {docs.length > 0 && (
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between mb-1">
@@ -325,9 +412,8 @@ export default function UploadPage() {
         </div>
       </div>
 
-      {/* ── Right panel: Chat ── */}
+      {/* Right panel: Chat */}
       <div className="flex-1 flex flex-col min-w-0 min-h-[60vh] md:min-h-0">
-        {/* Empty state */}
         {!hasDocuments ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
             <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -338,7 +424,6 @@ export default function UploadPage() {
           </div>
         ) : (
           <>
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-4">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -350,7 +435,10 @@ export default function UploadPage() {
                     {msg.result && (
                       <div className="mb-2"><ConfidenceBadge score={msg.result.confidence} /></div>
                     )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {msg.content}
+                      {msg.streaming && <span className="animate-pulse ml-0.5">▋</span>}
+                    </p>
                     {msg.result && <SourcesAccordion result={msg.result} />}
                     {msg.role === "assistant" && msg.result && (
                       <button
@@ -367,15 +455,6 @@ export default function UploadPage() {
                 </div>
               ))}
 
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-800 border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-2 text-slate-400 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Retrieving and generating…
-                  </div>
-                </div>
-              )}
-
-              {/* Suggested questions — shown when chat is fresh */}
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   {SUGGESTED.map(q => (
@@ -393,7 +472,6 @@ export default function UploadPage() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
             <div className="px-4 md:px-6 pb-5 pt-3 border-t border-slate-800">
               <div className="flex gap-2">
                 <input

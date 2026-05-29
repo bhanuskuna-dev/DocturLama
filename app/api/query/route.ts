@@ -1,30 +1,51 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { embed } from "@/lib/embedder";
 import { similaritySearch } from "@/lib/vectorStore";
 import { SourceCitation } from "@/lib/types";
+import { expandQuery } from "@/lib/queryExpander";
 
 function getAnthropic() { return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }); }
 
 type HistoryMsg = { role: "user" | "assistant"; content: string };
 
+const enc = new TextEncoder();
+function sse(data: unknown): Uint8Array {
+  return enc.encode(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  "X-Accel-Buffering": "no",
+};
+
+function singleEvent(data: unknown): Response {
+  const stream = new ReadableStream({
+    start(c) { c.enqueue(sse(data)); c.close(); },
+  });
+  return new Response(stream, { headers: SSE_HEADERS });
+}
+
 export async function POST(req: NextRequest) {
+  const { question, topK = 3, history = [] } = await req.json() as {
+    question: string;
+    topK?: number;
+    history?: HistoryMsg[];
+  };
+
+  if (!question) {
+    return singleEvent({ t: "r", answer: "Question is required.", sources: [], confidence: 0 });
+  }
+
   try {
-    const { question, topK = 3, history = [] } = await req.json() as {
-      question: string;
-      topK?: number;
-      history?: HistoryMsg[];
-    };
-
-    if (!question) {
-      return NextResponse.json({ error: "question is required" }, { status: 400 });
-    }
-
-    const queryEmbedding = await embed(question);
+    const expanded = expandQuery(question);
+    const queryEmbedding = await embed(expanded);
     const chunks = similaritySearch(queryEmbedding, topK);
 
     if (chunks.length === 0) {
-      return NextResponse.json({
+      return singleEvent({
+        t: "r",
         answer: "No relevant documents found. Please upload medical documents first, then ask your question.",
         sources: [],
         confidence: 0,
@@ -47,19 +68,6 @@ This score should reflect how well the context supports your answer.`;
       content: m.content,
     }));
 
-    const message = await getAnthropic().messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [...priorMessages, { role: "user", content: userPrompt }],
-    });
-
-    const rawAnswer = message.content[0].type === "text" ? message.content[0].text : "";
-
-    const confidenceMatch = rawAnswer.match(/CONFIDENCE:\s*(0?\.\d+|1\.0|1)/i);
-    const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.5;
-    const answer = rawAnswer.replace(/\nCONFIDENCE:\s*(0?\.\d+|1\.0|1)\s*$/i, "").trim();
-
     const sources: SourceCitation[] = chunks.map((c, i) => ({
       label: `Source ${i + 1}`,
       text: c.text.slice(0, 200) + (c.text.length > 200 ? "…" : ""),
@@ -67,9 +75,47 @@ This score should reflect how well the context supports your answer.`;
       chunkIndex: c.chunkIndex,
     }));
 
-    return NextResponse.json({ answer, sources, confidence });
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          const stream = await getAnthropic().messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: [...priorMessages, { role: "user", content: userPrompt }],
+            stream: true,
+          });
+
+          let fullText = "";
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              const delta = event.delta.text;
+              fullText += delta;
+              controller.enqueue(sse({ t: "d", v: delta }));
+            }
+          }
+
+          const confidenceMatch = fullText.match(/CONFIDENCE:\s*(0?\.\d+|1\.0|1)/i);
+          const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.5;
+          const answer = fullText.replace(/\nCONFIDENCE:\s*(0?\.\d+|1\.0|1)\s*$/i, "").trim();
+
+          controller.enqueue(sse({ t: "r", answer, sources, confidence }));
+        } catch {
+          controller.enqueue(sse({
+            t: "r",
+            answer: "Failed to generate response. Please check your API key.",
+            sources: [],
+            confidence: 0,
+          }));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, { headers: SSE_HEADERS });
   } catch (err) {
     console.error("Query error:", err);
-    return NextResponse.json({ error: "Failed to process query" }, { status: 500 });
+    return singleEvent({ t: "r", answer: "Failed to process query.", sources: [], confidence: 0 });
   }
 }
