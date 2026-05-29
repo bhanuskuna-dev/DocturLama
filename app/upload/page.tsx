@@ -63,6 +63,7 @@ export default function UploadPage() {
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadStep, setUploadStep] = useState(0); // 0=idle 1=parse 2=chunk 3=index
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -92,21 +93,33 @@ export default function UploadPage() {
 
   const processFile = useCallback(async (file: File) => {
     setUploadStatus("processing");
-    setUploadMsg(`Processing ${file.name}…`);
+    setUploadStep(0);
     try {
       let text = "";
       if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+        setUploadStep(1);
+        setUploadMsg(`Parsing PDF — ${file.name}…`);
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
         if (!res.ok) throw new Error("PDF parsing failed");
-        text = (await res.json()).text;
+        const parsed = await res.json();
+        text = parsed.text;
+        setUploadMsg(`Parsed ${parsed.pages} page${parsed.pages !== 1 ? "s" : ""} — chunking…`);
       } else {
+        setUploadStep(1);
+        setUploadMsg(`Reading ${file.name}…`);
         text = await file.text();
+        setUploadMsg("Chunking text…");
       }
+      setUploadStep(2);
+      await new Promise((r) => setTimeout(r, 80)); // let UI update
+      setUploadStep(3);
+      setUploadMsg("Indexing chunks…");
       const data = await embedText(text, file.name);
       setDocs(data.documents);
       setUploadStatus("success");
+      setUploadStep(0);
       setUploadMsg(`Indexed ${data.chunkCount} chunks from ${file.name}`);
       setShowDropzone(false);
       setMessages(prev => [...prev, {
@@ -116,6 +129,7 @@ export default function UploadPage() {
       setTimeout(() => inputRef.current?.focus(), 100);
     } catch (err) {
       setUploadStatus("error");
+      setUploadStep(0);
       setUploadMsg(err instanceof Error ? err.message : "Upload failed");
     }
   }, [embedText]);
@@ -225,15 +239,34 @@ export default function UploadPage() {
 
           {/* Status */}
           {uploadStatus !== "idle" && (
-            <div className={`flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
+            <div className={`px-3 py-2.5 rounded-lg text-xs ${
               uploadStatus === "processing" ? "bg-slate-800 text-slate-300"
               : uploadStatus === "success" ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40"
               : "bg-red-900/40 text-red-300 border border-red-700/40"
             }`}>
-              {uploadStatus === "processing" && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5" />}
-              {uploadStatus === "success" && <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-              {uploadStatus === "error" && <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-              <span>{uploadMsg}</span>
+              <div className="flex items-start gap-2">
+                {uploadStatus === "processing" && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 mt-0.5" />}
+                {uploadStatus === "success" && <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                {uploadStatus === "error" && <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                <span>{uploadMsg}</span>
+              </div>
+              {uploadStatus === "processing" && (
+                <div className="flex gap-1 mt-2 ml-5">
+                  {["Parse", "Chunk", "Index"].map((label, i) => (
+                    <div key={label} className="flex items-center gap-1">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        uploadStep > i + 1 ? "bg-sky-400"
+                        : uploadStep === i + 1 ? "bg-sky-400 animate-pulse"
+                        : "bg-slate-600"
+                      }`} />
+                      <span className={`text-[10px] ${uploadStep >= i + 1 ? "text-sky-400" : "text-slate-600"}`}>
+                        {label}
+                      </span>
+                      {i < 2 && <span className="text-slate-700 text-[10px]">›</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

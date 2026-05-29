@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, CheckCircle, XCircle, Wand2 } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Wand2, Copy, Download, Check } from "lucide-react";
 import { NoteSuggestion } from "@/lib/types";
 
 const SAMPLE_NOTE = `Patient: J.D., 58M
@@ -17,6 +17,7 @@ export default function EnhancePage() {
   const [suggestions, setSuggestions] = useState<NoteSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const enhance = async () => {
     setLoading(true);
@@ -31,16 +32,14 @@ export default function EnhancePage() {
       const data = await res.json();
       setSuggestions(data.suggestions.map((s: NoteSuggestion) => ({ ...s, accepted: undefined })));
     } catch {
-      // handle silently for now
+      // silent
     } finally {
       setLoading(false);
     }
   };
 
   const decide = (idx: number, accept: boolean) => {
-    setSuggestions((prev) =>
-      prev.map((s, i) => (i === idx ? { ...s, accepted: accept } : s))
-    );
+    setSuggestions((prev) => prev.map((s, i) => (i === idx ? { ...s, accepted: accept } : s)));
   };
 
   const applyAccepted = () => {
@@ -48,7 +47,6 @@ export default function EnhancePage() {
     const accepted = suggestions
       .filter((s) => s.accepted === true)
       .sort((a, b) => b.lineRange[0] - a.lineRange[0]);
-
     for (const s of accepted) {
       const [start, end] = s.lineRange;
       lines.splice(start - 1, end - start + 1, ...s.suggested.split("\n"));
@@ -58,8 +56,25 @@ export default function EnhancePage() {
     setApplied(true);
   };
 
+  const copyNote = async () => {
+    await navigator.clipboard.writeText(note);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadNote = () => {
+    const blob = new Blob([note], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `clinical-note-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const pendingCount = suggestions.filter((s) => s.accepted === undefined).length;
   const acceptedCount = suggestions.filter((s) => s.accepted === true).length;
+  const wordCount = note.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -71,9 +86,12 @@ export default function EnhancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Note editor */}
         <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
-            Clinical Note
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              Clinical Note
+            </label>
+            <span className="text-xs text-slate-600">{wordCount} words</span>
+          </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -81,16 +99,43 @@ export default function EnhancePage() {
             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 font-mono leading-relaxed focus:outline-none focus:border-sky-500 resize-none transition-colors"
             placeholder="Paste clinical note here…"
           />
-          <button
-            onClick={enhance}
-            disabled={loading || !note.trim()}
-            className="mt-3 flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium text-white transition-colors"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-            {loading ? "Analyzing…" : "Suggest Enhancements"}
-          </button>
+
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <button
+              onClick={enhance}
+              disabled={loading || !note.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium text-white transition-colors"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+              {loading ? "Analyzing…" : "Suggest Enhancements"}
+            </button>
+
+            {note.trim() && (
+              <>
+                <button
+                  onClick={copyNote}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Copy note to clipboard"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  onClick={downloadNote}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Download as .txt"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </>
+            )}
+          </div>
+
           {applied && (
-            <p className="mt-2 text-sm text-emerald-400">Accepted suggestions applied to note.</p>
+            <p className="mt-2 text-sm text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4" /> Accepted suggestions applied.
+            </p>
           )}
         </div>
 
@@ -155,15 +200,11 @@ export default function EnhancePage() {
                 <div className="space-y-2 text-xs font-mono">
                   <div>
                     <span className="text-slate-500 block mb-0.5">Original:</span>
-                    <span className="text-red-300/80 bg-red-900/20 px-2 py-1 rounded block whitespace-pre-wrap">
-                      {s.original}
-                    </span>
+                    <span className="text-red-300/80 bg-red-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.original}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block mb-0.5">Suggested:</span>
-                    <span className="text-emerald-300/90 bg-emerald-900/20 px-2 py-1 rounded block whitespace-pre-wrap">
-                      {s.suggested}
-                    </span>
+                    <span className="text-emerald-300/90 bg-emerald-900/20 px-2 py-1 rounded block whitespace-pre-wrap">{s.suggested}</span>
                   </div>
                 </div>
 
