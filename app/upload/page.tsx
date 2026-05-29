@@ -5,7 +5,6 @@ import {
   Upload, FileText, CheckCircle, AlertCircle, Loader2,
   FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check
 } from "lucide-react";
-import { SAMPLE_DOCUMENT_NAME, SAMPLE_DOCUMENT_TEXT } from "@/lib/sampleData";
 import { QueryResult } from "@/lib/types";
 
 interface DocEntry { source: string; chunkCount: number; }
@@ -64,6 +63,7 @@ export default function UploadPage() {
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadMsg, setUploadMsg] = useState("");
   const [uploadStep, setUploadStep] = useState(0);
+  const [uploadStepLabels, setUploadStepLabels] = useState(["Parse", "Chunk", "Index"]);
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(true);
   const [showMobileDocs, setShowMobileDocs] = useState(false);
@@ -112,6 +112,7 @@ export default function UploadPage() {
 
   const processFile = useCallback(async (file: File) => {
     anyLoadStartedRef.current = true;
+    setUploadStepLabels(["Parse", "Chunk", "Index"]);
     setUploadStatus("processing");
     setUploadStep(0);
     try {
@@ -157,23 +158,39 @@ export default function UploadPage() {
 
   const loadSample = useCallback(async () => {
     anyLoadStartedRef.current = true;
+    setUploadStepLabels(["Generate", "Chunk", "Index"]);
     setUploadStatus("processing");
-    setUploadMsg("Indexing 7-specialty clinical reference…");
+    setUploadStep(1);
+    setUploadMsg("Generating patient records with AI…");
     try {
-      const data = await embedText(SAMPLE_DOCUMENT_TEXT, SAMPLE_DOCUMENT_NAME);
+      const genRes = await fetch("/api/generate-sample", { method: "POST" });
+      if (!genRes.ok) throw new Error("Failed to generate sample records");
+      const { text, error } = await genRes.json();
+      if (error) throw new Error(error);
+
+      setUploadStep(2);
+      setUploadMsg("Chunking patient records…");
+      await new Promise(r => setTimeout(r, 60));
+
+      setUploadStep(3);
+      setUploadMsg("Indexing…");
+      const data = await embedText(text, "AI-Generated Patient Records (Sample)");
+
       setDocs(data.documents);
       setUploadStatus("success");
-      setUploadMsg(`Indexed ${data.chunkCount} chunks`);
+      setUploadStep(0);
+      setUploadMsg(`Indexed ${data.chunkCount} chunks from 3 patient records`);
       setShowDropzone(false);
       setShowMobileDocs(false);
       setMessages([{
         role: "assistant",
-        content: `Clinical reference loaded (${data.chunkCount} chunks across cardiology, critical care, pharmacology, neurology, and more). Try one of the suggested questions below, or ask your own.`,
+        content: `3 AI-generated patient records indexed (${data.chunkCount} chunks) — covering T2DM/CKD, CAD/HFrEF, and metabolic syndrome. Try one of the suggested questions or ask about a specific patient.`,
       }]);
       setTimeout(() => inputRef.current?.focus(), 100);
     } catch (err) {
       setUploadStatus("error");
-      setUploadMsg(err instanceof Error ? err.message : "Failed to load sample data");
+      setUploadStep(0);
+      setUploadMsg(err instanceof Error ? err.message : "Failed to generate sample data");
     }
   }, [embedText]);
 
@@ -376,7 +393,7 @@ export default function UploadPage() {
               </div>
               {uploadStatus === "processing" && (
                 <div className="flex gap-1 mt-2 ml-5">
-                  {["Parse", "Chunk", "Index"].map((label, i) => (
+                  {uploadStepLabels.map((label, i) => (
                     <div key={label} className="flex items-center gap-1">
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         uploadStep > i + 1 ? "bg-sky-400"
