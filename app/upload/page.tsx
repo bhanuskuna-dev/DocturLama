@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, Trash2, CheckCircle, AlertCircle, Loader2, FlaskConical } from "lucide-react";
+import { SAMPLE_DOCUMENT_NAME, SAMPLE_DOCUMENT_TEXT } from "@/lib/sampleData";
 
 interface DocEntry {
   source: string;
@@ -15,13 +16,21 @@ export default function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const embedText = useCallback(async (text: string, source: string) => {
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, source }),
+    });
+    if (!res.ok) throw new Error("Embedding failed");
+    return res.json();
+  }, []);
+
   const processFile = useCallback(async (file: File) => {
     setStatus("processing");
     setMessage(`Processing ${file.name}…`);
-
     try {
       let text = "";
-
       if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
         const formData = new FormData();
         formData.append("file", file);
@@ -32,15 +41,7 @@ export default function UploadPage() {
       } else {
         text = await file.text();
       }
-
-      const res = await fetch("/api/embeddings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, source: file.name }),
-      });
-
-      if (!res.ok) throw new Error("Embedding failed");
-      const data = await res.json();
+      const data = await embedText(text, file.name);
       setDocs(data.documents);
       setStatus("success");
       setMessage(`Indexed ${data.chunkCount} chunks from ${file.name}`);
@@ -48,7 +49,21 @@ export default function UploadPage() {
       setStatus("error");
       setMessage(err instanceof Error ? err.message : "Upload failed");
     }
-  }, []);
+  }, [embedText]);
+
+  const loadSample = useCallback(async () => {
+    setStatus("processing");
+    setMessage("Loading sample clinical reference — indexing 7 specialties…");
+    try {
+      const data = await embedText(SAMPLE_DOCUMENT_TEXT, SAMPLE_DOCUMENT_NAME);
+      setDocs(data.documents);
+      setStatus("success");
+      setMessage(`Indexed ${data.chunkCount} chunks from sample document. Try asking a clinical question.`);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Failed to load sample data");
+    }
+  }, [embedText]);
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -81,6 +96,28 @@ export default function UploadPage() {
         Upload PDF or plain-text medical documents. Documents are chunked into 500-token segments
         with 100-token overlap and indexed in-memory for retrieval.
       </p>
+
+      {/* Try Sample Data banner */}
+      <div className="mb-6 flex items-center justify-between bg-sky-950/60 border border-sky-700/50 rounded-xl px-5 py-4">
+        <div>
+          <p className="text-sky-200 text-sm font-medium">No documents yet?</p>
+          <p className="text-sky-400/70 text-xs mt-0.5">
+            Load a 7-specialty clinical reference — cardiology, critical care, pharmacology, neurology &amp; more.
+          </p>
+        </div>
+        <button
+          onClick={loadSample}
+          disabled={status === "processing"}
+          className="flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors shrink-0 ml-4"
+        >
+          {status === "processing" ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FlaskConical className="w-4 h-4" />
+          )}
+          Try Sample Data
+        </button>
+      </div>
 
       {/* Drop zone */}
       <div
