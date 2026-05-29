@@ -77,6 +77,7 @@ export default function UploadPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const docsRef = useRef(docs);
   useEffect(() => { docsRef.current = docs; }, [docs]);
+  const anyLoadStartedRef = useRef(false);
 
   const hasDocuments = docs.length > 0;
 
@@ -85,11 +86,11 @@ export default function UploadPage() {
     fetch("/api/embeddings")
       .then(r => r.json())
       .then(d => {
-        if (!Array.isArray(d.documents) || d.documents.length === 0) {
-          setDocs([]);
-          setUploadStatus("idle");
-          setUploadMsg("");
-          setShowDropzone(true);
+        if (anyLoadStartedRef.current) return;
+        if (Array.isArray(d.documents) && d.documents.length > 0) {
+          setDocs(d.documents);
+          setUploadStatus("success");
+          setShowDropzone(false);
         }
       })
       .catch(() => {});
@@ -110,6 +111,7 @@ export default function UploadPage() {
   }, []);
 
   const processFile = useCallback(async (file: File) => {
+    anyLoadStartedRef.current = true;
     setUploadStatus("processing");
     setUploadStep(0);
     try {
@@ -154,6 +156,7 @@ export default function UploadPage() {
   }, [embedText]);
 
   const loadSample = useCallback(async () => {
+    anyLoadStartedRef.current = true;
     setUploadStatus("processing");
     setUploadMsg("Indexing 7-specialty clinical reference…");
     try {
