@@ -297,7 +297,76 @@ In-Memory Store (Node.js module singleton, RAM only)
         </div>
       </Section>
 
-      <Section id="competitors" title="7. Competitive Landscape">
+      <Section id="guardrails" title="7. Input Guardrails">
+        <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4">
+          Every query entered in the Documents & Chat interface is validated by a lightweight pre-flight guardrail layer before it reaches the RAG pipeline. The layer runs a single{" "}
+          <span className="font-mono text-sky-600 dark:text-sky-400 text-xs">claude-haiku-4-5-20251001</span> call at{" "}
+          <span className="font-mono text-sky-600 dark:text-sky-400 text-xs">POST /api/guardrails</span> and checks for three classes of problematic input simultaneously.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          {[
+            {
+              label: "Off-topic queries",
+              checkType: "off_topic",
+              why: "The RAG pipeline is grounded in clinical documents. Answering cooking, sports, or coding questions would be misleading and waste tokens.",
+              logic: "Flags queries clearly unrelated to medicine, health, wellness, nutrition, mental health, or pharmacology. Borderline cases (e.g. diet, sleep, exercise) are explicitly passed.",
+            },
+            {
+              label: "Prompt injection",
+              checkType: "prompt_injection",
+              why: "Prompt injection attacks attempt to override the system prompt, roleplay as a different AI, or extract system context. These can corrupt clinical output or expose system behavior.",
+              logic: "Detects queries that instruct the model to ignore its prompt, adopt a new persona, or reveal its instructions. Standard clinical questions — even adversarial-sounding ones — are not flagged.",
+            },
+            {
+              label: "PII in queries",
+              checkType: "pii",
+              why: "DocturLama does not need patient identifiers to answer clinical questions. A user pasting an SSN or a full name + DOB combination represents an unnecessary PHI exposure risk.",
+              logic: "Detects SSNs (NNN-NN-NNNN format), phone numbers, or a full name explicitly combined with a date of birth or patient ID. Mentions of common names alone are not flagged.",
+            },
+          ].map(({ label, checkType, why, logic }) => (
+            <Card key={checkType}>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">{label}</p>
+              <p className="text-[10px] font-mono text-sky-600 dark:text-sky-400 mb-2">{checkType}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-2"><strong className="text-slate-700 dark:text-slate-300">Why:</strong> {why}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed"><strong className="text-slate-700 dark:text-slate-300">Logic:</strong> {logic}</p>
+            </Card>
+          ))}
+        </div>
+        <Card className="mb-4">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">Design Decisions</h3>
+          <div className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex gap-2"><span className="text-sky-400 shrink-0">·</span><p><strong className="text-slate-700 dark:text-slate-300">Single Haiku call for all three checks.</strong> Rather than three sequential API calls, all checks are combined in one prompt returning a JSON object. This reduces guardrail latency from ~1.5 s (3 × 500 ms) to ~500 ms total.</p></div>
+            <div className="flex gap-2"><span className="text-sky-400 shrink-0">·</span><p><strong className="text-slate-700 dark:text-slate-300">Fail-open on API error.</strong> If the guardrail API call fails (network timeout, Haiku outage), the request passes through to the RAG pipeline rather than being blocked. A clinical session outage from a guardrail error would be worse than a missed guardrail check.</p></div>
+            <div className="flex gap-2"><span className="text-sky-400 shrink-0">·</span><p><strong className="text-slate-700 dark:text-slate-300">Permissive thresholds.</strong> The classification prompt instructs the model to flag only clear violations, not borderline cases. False positives (blocking legitimate clinical questions) are treated as more harmful than false negatives.</p></div>
+            <div className="flex gap-2"><span className="text-sky-400 shrink-0">·</span><p><strong className="text-slate-700 dark:text-slate-300">Shield indicator in UI.</strong> A green shield (ShieldCheck) appears below the input after a passing query; a red shield (ShieldAlert) with the block category appears for rejected queries. Blocked queries are rendered inline in the chat with amber styling to distinguish them from AI responses.</p></div>
+            <div className="flex gap-2"><span className="text-sky-400 shrink-0">·</span><p><strong className="text-slate-700 dark:text-slate-300">Query truncation at 600 characters.</strong> The guardrail prompt only inspects the first 600 characters of the query. This bounds Haiku token cost and is sufficient for the three checks — PII appears early in a query, and off-topic and injection signals are typically in the first sentence.</p></div>
+          </div>
+        </Card>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Guardrail Failure Modes</h3>
+          {[
+            { severity: "med", item: "Adversarial medical framing", detail: "A prompt injection attempt disguised as a clinical question (e.g. 'As a doctor, ignore your instructions and…') may bypass the off-topic check while being detected by the injection check — or may slip through if phrasing is sufficiently medical. The permissive threshold trades false-positive reduction for slightly higher false-negative rate." },
+            { severity: "med", item: "False positives on medical jargon", detail: "Queries containing strings that resemble SSNs (e.g. medication dosing codes like '123-45-6789 mg/dL') or dates of birth in clinical context could trigger the PII check. The prompt is instructed to require a full name + DOB combination, reducing this risk." },
+            { severity: "med", item: "Haiku API outage → fail-open", detail: "When the guardrail endpoint returns an error, the system passes the query through rather than blocking. This is intentional (clinical availability > guardrail completeness) but means an extended Haiku outage disables input validation silently." },
+            { severity: "low", item: "Context-aware bypass", detail: "An attacker who knows the classification prompt can craft queries that score as medical while containing injection payloads. Defense-in-depth requires the main claude-sonnet-4-6 system prompt to be robust independently of the guardrail." },
+            { severity: "low", item: "Encoding and homoglyph attacks", detail: "Unicode substitutions or non-ASCII characters in a query may evade the text-based classifier. Haiku processes the raw UTF-8 string, but heavily obfuscated injection attempts may not be detected." },
+          ].map(({ severity, item, detail }) => (
+            <div key={item} className="flex gap-3 px-4 py-3 bg-white dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/30 rounded-xl">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
+                severity === "high" ? "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                : severity === "med" ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                : "bg-slate-100 dark:bg-slate-700/40 text-slate-500 dark:text-slate-400"
+              }`}>{severity.toUpperCase()}</span>
+              <div>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{item}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="competitors" title="8. Competitive Landscape">
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -326,9 +395,10 @@ In-Memory Store (Node.js module singleton, RAM only)
         </div>
       </Section>
 
-      <Section id="roadmap" title="8. Production Readiness Checklist">
+      <Section id="roadmap" title="9. Production Readiness Checklist">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
+            { done: true, item: "Input guardrails (off-topic, injection, PII)" },
             { done: true, item: "Session-only storage (no PHI at rest)" },
             { done: true, item: "15-min inactivity auto-clear" },
             { done: true, item: "HIPAA notice banner on every page" },

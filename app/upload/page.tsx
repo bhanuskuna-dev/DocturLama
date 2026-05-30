@@ -3,7 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Upload, FileText, CheckCircle, AlertCircle, Loader2,
-  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check, Eye, EyeOff
+  FlaskConical, Send, ChevronDown, ChevronUp, Plus, X, Copy, Check, Eye, EyeOff,
+  ShieldCheck, ShieldAlert
 } from "lucide-react";
 import { QueryResult } from "@/lib/types";
 
@@ -13,7 +14,11 @@ interface Message {
   content: string;
   result?: QueryResult;
   streaming?: boolean;
+  blocked?: boolean;
+  blockType?: string;
 }
+
+type GuardrailResult = { pass: true } | { pass: false; checkType: string; reason: string } | null;
 
 const DEFAULT_QUESTIONS = [
   "What is the recommended first-line treatment for type 2 diabetes?",
@@ -75,6 +80,8 @@ export default function UploadPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [guardrailChecking, setGuardrailChecking] = useState(false);
+  const [guardrailResult, setGuardrailResult] = useState<GuardrailResult>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -234,8 +241,32 @@ export default function UploadPage() {
 
   const send = async (question?: string) => {
     const q = (question ?? input).trim();
-    if (!q || chatLoading || !hasDocuments) return;
+    if (!q || chatLoading || guardrailChecking || !hasDocuments) return;
     setInput("");
+    setGuardrailChecking(true);
+    setGuardrailResult(null);
+
+    let gr: { pass: boolean; checkType: string; reason: string };
+    try {
+      const grRes = await fetch("/api/guardrails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      gr = await grRes.json();
+    } catch {
+      gr = { pass: true, checkType: "none", reason: "" };
+    }
+    setGuardrailChecking(false);
+    setGuardrailResult(gr.pass ? { pass: true } : { pass: false, checkType: gr.checkType, reason: gr.reason });
+
+    if (!gr.pass) {
+      setMessages(prev => [...prev,
+        { role: "user", content: q },
+        { role: "assistant", content: gr.reason, blocked: true, blockType: gr.checkType },
+      ]);
+      return;
+    }
 
     const history = messages
       .filter(m => m.role === "user" || (m.role === "assistant" && m.result !== undefined))
@@ -481,35 +512,52 @@ export default function UploadPage() {
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-4">
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-sky-600 text-white"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50"
-                  }`}>
-                    {msg.result && (
-                      <div className="mb-2"><ConfidenceBadge score={msg.result.confidence} /></div>
-                    )}
-                    <p className="whitespace-pre-wrap">
-                      {msg.content}
-                      {msg.streaming && <span className="animate-pulse ml-0.5">▋</span>}
-                    </p>
-                    {msg.result && <SourcesAccordion result={msg.result} />}
-                    {msg.role === "assistant" && msg.result && (
-                      <button
-                        onClick={() => copyMsg(msg.content, i)}
-                        className="mt-2 flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                        title="Copy answer"
-                      >
-                        {copiedIdx === i
-                          ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</>
-                          : <><Copy className="w-3 h-3" /> Copy</>}
-                      </button>
-                    )}
+              {messages.map((msg, i) => {
+                if (msg.role === "assistant" && msg.blocked) {
+                  return (
+                    <div key={i} className="flex justify-start">
+                      <div className="max-w-[85%] md:max-w-[80%] rounded-xl px-4 py-3 text-sm bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700/50">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span className="text-xs font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                            Query blocked · {msg.blockType?.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <p className="text-amber-800 dark:text-amber-300 leading-relaxed">{msg.content}</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[85%] md:max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-sky-600 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50"
+                    }`}>
+                      {msg.result && (
+                        <div className="mb-2"><ConfidenceBadge score={msg.result.confidence} /></div>
+                      )}
+                      <p className="whitespace-pre-wrap">
+                        {msg.content}
+                        {msg.streaming && <span className="animate-pulse ml-0.5">▋</span>}
+                      </p>
+                      {msg.result && <SourcesAccordion result={msg.result} />}
+                      {msg.role === "assistant" && msg.result && (
+                        <button
+                          onClick={() => copyMsg(msg.content, i)}
+                          className="mt-2 flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                          title="Copy answer"
+                        >
+                          {copiedIdx === i
+                            ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</>
+                            : <><Copy className="w-3 h-3" /> Copy</>}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {messages.length <= 1 && !chatLoading && (
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -529,6 +577,23 @@ export default function UploadPage() {
             </div>
 
             <div className="px-4 md:px-6 pb-5 pt-3 border-t border-slate-200 dark:border-slate-800">
+              {guardrailResult !== null && (
+                <div className={`flex items-center gap-1.5 text-xs mb-2 ${
+                  guardrailResult.pass
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-500 dark:text-red-400"
+                }`}>
+                  {guardrailResult.pass
+                    ? <><ShieldCheck className="w-3.5 h-3.5" /> Guardrails passed</>
+                    : <><ShieldAlert className="w-3.5 h-3.5" /> Blocked: {(guardrailResult as { checkType: string }).checkType.replace(/_/g, " ")}</>
+                  }
+                </div>
+              )}
+              {guardrailChecking && (
+                <div className="flex items-center gap-1.5 text-xs mb-2 text-slate-400 dark:text-slate-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking guardrails…
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   ref={inputRef}
@@ -540,10 +605,13 @@ export default function UploadPage() {
                 />
                 <button
                   onClick={() => send()}
-                  disabled={!input.trim() || chatLoading}
+                  disabled={!input.trim() || chatLoading || guardrailChecking}
                   className="px-4 py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors"
                 >
-                  <Send className="w-4 h-4 text-white" />
+                  {guardrailChecking
+                    ? <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    : <Send className="w-4 h-4 text-white" />
+                  }
                 </button>
               </div>
             </div>
