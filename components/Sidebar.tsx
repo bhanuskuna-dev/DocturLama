@@ -46,11 +46,11 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/50 space-y-1">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-600">
-          <ShieldCheck className="w-3 h-3 shrink-0" />
-          <span>HIPAA — session-only, no PHI stored</span>
-        </div>
+      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/50">
+        <ShieldCheck
+          className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700"
+          title="HIPAA: session-only storage — no PHI stored, logged, or transmitted"
+        />
       </div>
     </aside>
   );
