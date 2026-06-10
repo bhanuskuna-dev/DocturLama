@@ -7,6 +7,7 @@ import {
   ShieldCheck, ShieldAlert
 } from "lucide-react";
 import { QueryResult } from "@/lib/types";
+import WelcomeModal from "@/components/WelcomeModal";
 
 interface DocEntry { source: string; chunkCount: number; }
 interface Message {
@@ -365,6 +366,8 @@ export default function UploadPage() {
   };
 
   return (
+    <>
+    <WelcomeModal onTrySample={loadSample} />
     <div className="flex flex-col md:flex-row md:h-full overflow-hidden">
       {/* Left panel: Documents */}
       <div className="md:w-72 w-full shrink-0 md:border-r border-b md:border-b-0 border-slate-200 dark:border-slate-700/50 flex flex-col bg-slate-50/40 dark:bg-slate-900/40 md:overflow-y-auto">
@@ -619,5 +622,6 @@ export default function UploadPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
