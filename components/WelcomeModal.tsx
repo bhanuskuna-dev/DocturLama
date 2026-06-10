@@ -38,7 +38,7 @@ export default function WelcomeModal() {
               <Sparkles className="w-6 h-6 text-white shrink-0" />
               <div>
                 <h2 className="text-white font-semibold text-lg leading-tight">Welcome to DocturLama</h2>
-                <p className="text-sky-100 text-sm mt-0.5">Healthcare RAG Assistant — a learning demo</p>
+                <p className="text-sky-100 text-sm mt-0.5">An AI assistant for medical documents — a personal project</p>
               </div>
             </div>
             <button
@@ -57,11 +57,11 @@ export default function WelcomeModal() {
             <div className="flex items-center gap-2 mb-2">
               <BookOpen className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
-                What this demo explores
+                What this is
               </h3>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-              I built this to learn how <span className="font-medium text-slate-800 dark:text-slate-200">Retrieval-Augmented Generation (RAG)</span> works in practice — specifically in a domain where accuracy matters. The app ingests medical documents, chunks and indexes them in-memory, then uses Claude AI to answer questions grounded in those sources. It also experiments with <span className="font-medium text-slate-800 dark:text-slate-200">multimodal input</span>, <span className="font-medium text-slate-800 dark:text-slate-200">structured note enhancement</span>, and <span className="font-medium text-slate-800 dark:text-slate-200">LLM-as-judge evaluations</span>.
+              I built this to explore how AI can help make sense of medical documents. Upload a patient record or clinical note, ask questions in plain English, and get answers drawn directly from that document. I also wanted to see how well AI could clean up messy doctor notes, understand voice and images, and grade its own answers for accuracy.
             </p>
           </div>
 
@@ -80,23 +80,23 @@ export default function WelcomeModal() {
               {[
                 {
                   icon: <Sparkles className="w-4 h-4 text-emerald-500" />,
-                  label: "Generate sample data",
-                  desc: 'Click "Generate Sample" on the Upload page to create a synthetic patient record — no real data needed.',
+                  label: "Start with sample data",
+                  desc: 'Hit "Generate Sample" to load a fictional patient record — no real information needed.',
                 },
                 {
                   icon: <Upload className="w-4 h-4 text-sky-500" />,
-                  label: "Upload your own documents",
-                  desc: "Drop in any PDF or text file (discharge summary, lab report, etc.) and ask questions about it.",
+                  label: "Bring your own document",
+                  desc: "Upload any medical PDF or text file and ask questions about it in plain English.",
                 },
                 {
                   icon: <FileText className="w-4 h-4 text-indigo-500" />,
-                  label: "Enhance a doctor note",
-                  desc: 'Head to the "Enhance" tab, paste a rough note, and see structured suggestions appear inline.',
+                  label: "Clean up a doctor note",
+                  desc: 'Go to the "Note Enhancer" tab, paste in a rough note, and see AI suggestions for improving it.',
                 },
                 {
                   icon: <Mic className="w-4 h-4 text-rose-500" />,
-                  label: "Try voice or image input",
-                  desc: 'The "Multimodal" tab lets you speak a query or upload an image (e.g., a photo of handwritten notes).',
+                  label: "Speak or send a photo",
+                  desc: 'The "Image & Voice" tab lets you ask questions out loud or snap a photo of a handwritten note.',
                 },
               ].map(({ icon, label, desc }) => (
                 <li key={label} className="flex gap-3">
@@ -112,7 +112,7 @@ export default function WelcomeModal() {
 
           {/* footer note */}
           <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-4">
-            All data is session-only and cleared on inactivity or tab close — nothing is stored server-side.
+            Nothing you upload is saved. All data lives only in your browser tab and disappears when you close it.
           </p>
 
           <button
