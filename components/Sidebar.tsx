@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileEdit, Camera, BarChart2, Activity, BookOpen } from "lucide-react";
+import { MessageSquare, FileEdit, Camera, BarChart2, Activity, BookOpen, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 const nav = [
@@ -46,8 +46,11 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/50 text-xs text-slate-400 dark:text-slate-600">
-        Session-only storage
+      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/50 space-y-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-600">
+          <ShieldCheck className="w-3 h-3 shrink-0" />
+          <span>HIPAA — session-only, no PHI stored</span>
+        </div>
       </div>
     </aside>
   );
