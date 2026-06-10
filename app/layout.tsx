@@ -5,6 +5,7 @@ import HipaaBanner from "@/components/HipaaBanner";
 import InactivityGuard from "@/components/InactivityGuard";
 import MobileNav from "@/components/MobileNav";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import WelcomeModal from "@/components/WelcomeModal";
 
 export const metadata: Metadata = {
   title: "DocturLama — Healthcare RAG Assistant",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
             <main className="flex-1 overflow-y-auto pb-14 md:pb-0">{children}</main>
           </div>
+          <WelcomeModal />
           <InactivityGuard />
           <MobileNav />
         </ThemeProvider>
